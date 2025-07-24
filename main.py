@@ -3,16 +3,16 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from TTHC_fetcher import fetch_TTHC_data
-from CS766_fetcher import fetch_766_data
+from CS766_fetcher import fetch_766_angiang_info, fetch_766_all_units_in_province
 
-# ---- Cài đặt Streamlit Page config ----
+# ---- PAGE CONFIG ----
 st.set_page_config(
     page_title="Dashboard DVC & Chỉ số 766",
     page_icon=":bar_chart:",
     layout="wide"
 )
 
-# ---- Title and Intro ----
+# ---- INTRO ----
 st.markdown(
     """
     <h1 style='color:#0099FF; font-size: 2.4rem; margin-bottom:0.5rem;'>Báo cáo trực quan Dịch vụ công & Chỉ số 766</h1>
@@ -23,7 +23,30 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
-# ---- Pie Chart Function ----
+# ---- UTILS ----
+def filter_units_by_loai_coquan(units, loai):
+    """Lọc danh sách đơn vị theo LOAI_COQUAN."""
+    return [unit for unit in units if str(unit.get("LOAI_COQUAN")) == str(loai)]
+
+def plot_units_barchart(units, field="TONG_SCORE", top_n=10, title=None):
+    """Vẽ bar chart so sánh các đơn vị theo trường field."""
+    df = pd.DataFrame(units)
+    df[field] = pd.to_numeric(df[field], errors='coerce')
+    df = df.dropna(subset=[field])
+    df_bottom = df.sort_values(field, ascending=True).head(top_n)
+    names = df_bottom['TEN'].str.replace('UBND ', '', regex=False)
+    scores = df_bottom[field]
+
+    fig, ax = plt.subplots(figsize=(8, 4.5))
+    bars = ax.barh(names, scores, color='#1f77b4')
+    ax.set_xlabel('Điểm số')
+    ax.set_title(title if title else f'Top {top_n} đơn vị theo "{field}"')
+    ax.invert_yaxis()
+    ax.bar_label(bars, fmt='%.2f', padding=4)
+    plt.tight_layout()
+    st.pyplot(fig)
+    st.caption(f"Top {top_n} đơn vị theo '{field}'.")
+
 def plot_pie_charts(data):
     df = pd.DataFrame(data)
     numerical_columns = [
@@ -78,7 +101,6 @@ def plot_pie_charts(data):
         st.pyplot(fig2)
         st.caption("Biểu đồ 2: Tỉ lệ mức độ cung cấp DVC trực tuyến.")
 
-# ---- Bar Chart Function ----
 def plot_766_barchart(result, standard):
     fields = [
         "Công khai, minh bạch",
@@ -113,7 +135,7 @@ def plot_766_barchart(result, standard):
         st.pyplot(fig)
         st.caption("Các chỉ số càng gần hoặc vượt chuẩn càng tốt. Điểm thấp cần lưu ý cải thiện.")
 
-# ---- Main Display Function ----
+# ---- MAIN DISPLAY ----
 def display_data():
     with st.container():
         st.subheader("1. Tổng quan tình hình cung cấp DVC & TTHC", divider='rainbow')
@@ -127,7 +149,7 @@ def display_data():
 
     with st.container():
         st.subheader("2. Chỉ số 766: So sánh tỉnh An Giang với điểm chuẩn", divider='rainbow')
-        data_766 = fetch_766_data("398126")
+        data_766 = fetch_766_angiang_info("398126")
         if data_766 and "target" in data_766:
             with st.expander("Xem chi tiết chỉ số 766 của An Giang"):
                 st.dataframe(
@@ -149,6 +171,45 @@ def display_data():
             plot_766_barchart(data_766["target"], standard)
         else:
             st.error("Không có dữ liệu chỉ số 766 của An Giang.")
+
+    # --- TỔNG HỢP ĐƠN VỊ ---
+    with st.container():
+        st.subheader("3. So sánh chỉ số 766 giữa các đơn vị trong tỉnh An Giang", divider='rainbow')
+        units = fetch_766_all_units_in_province("398126")
+        if units:
+            with st.expander("Xem toàn bộ các đơn vị trong tỉnh"):
+                df_units = pd.DataFrame(units)
+                st.dataframe(df_units, use_container_width=True, height=400)
+
+            # Sở, ban, ngành
+            so_ban_nganh = filter_units_by_loai_coquan(units, 2)
+            st.markdown("#### Sở, ban, ngành (LOAI_COQUAN=2)")
+            if so_ban_nganh:
+                st.dataframe(pd.DataFrame(so_ban_nganh), use_container_width=True, height=320)
+                plot_units_barchart(
+                    so_ban_nganh,
+                    field="TONG_SCORE",
+                    top_n=10,
+                    title="Top 10 sở, ban, ngành điểm tổng thấp nhất"
+                )
+            else:
+                st.warning("Không có dữ liệu sở, ban, ngành.")
+
+            # Xã/phường/thị trấn
+            xa_phuong = filter_units_by_loai_coquan(units, 3)
+            st.markdown("#### Xã, phường, thị trấn (LOAI_COQUAN=3)")
+            if xa_phuong:
+                st.dataframe(pd.DataFrame(xa_phuong), use_container_width=True, height=320)
+                plot_units_barchart(
+                    xa_phuong,
+                    field="TONG_SCORE",
+                    top_n=10,
+                    title="Top 10 xã/phường/thị trấn điểm tổng thấp nhất"
+                )
+            else:
+                st.warning("Không có dữ liệu xã/phường/thị trấn.")
+        else:
+            st.error("Không có dữ liệu các đơn vị trong tỉnh An Giang.")
 
 if __name__ == "__main__":
     display_data()
