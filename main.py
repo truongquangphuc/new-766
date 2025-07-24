@@ -23,6 +23,25 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
+# ---- MAPPING tên cột tiếng Việt ----
+COLUMN_NAME_MAP = {
+    "ID": "Mã đơn vị",
+    "TEN": "Tên đơn vị",
+    "TEN_COQUAN": "Tên cơ quan",
+    "MA_COQUAN": "Mã CQ",
+    "LOAI_COQUAN": "Loại đơn vị",
+    "CAPDONVIID": "Cấp đơn vị",
+    "ID_COQUAN": "Mã CQ (chi tiết)",
+    "TDGQ": "Tiến độ giải quyết",
+    "MDHL": "Mức độ hài lòng",
+    "MDSH": "Số hóa hồ sơ",
+    "TTTT": "Thanh toán trực tuyến",
+    "CLGQ": "Dịch vụ công trực tuyến",
+    "CKMB": "Công khai minh bạch",
+    "TONG_SCORE": "Tổng điểm",
+    "ROW_STT": "STT"
+}
+
 # ---- CHỈ SỐ mapping (field, tên tiếng Việt) ----
 FIELDS_MAPPING = [
     ("MDHL", "Mức độ hài lòng"),
@@ -144,6 +163,23 @@ def plot_766_barchart(result, standard):
         st.pyplot(fig)
         st.caption("Các chỉ số càng gần hoặc vượt chuẩn càng tốt. Điểm thấp cần lưu ý cải thiện.")
 
+# ---- Hàm hiển thị bảng đẹp với tên cột rõ ràng ----
+def show_df_pretty(data, height=320):
+    df_show = pd.DataFrame(data)
+    # Chỉ giữ các cột chính, KHÔNG giữ Mã CQ (chi tiết) và Tên cơ quan (không bị trùng lặp)
+    columns_to_keep = [
+        "ID", "TEN", "LOAI_COQUAN", "CAPDONVIID",
+        "TDGQ", "MDHL", "MDSH", "TTTT", "CLGQ", "CKMB", "TONG_SCORE"
+    ]
+    # Chỉ giữ các cột tồn tại trong data (tránh lỗi KeyError nếu data không đủ cột)
+    columns_exist = [col for col in columns_to_keep if col in df_show.columns]
+    if columns_exist:
+        df_show = df_show[columns_exist]
+    else:
+        st.warning("Không có cột nào trong danh sách cần hiển thị!")
+    df_show = df_show.rename(columns=COLUMN_NAME_MAP)
+    st.dataframe(df_show, use_container_width=True, height=height)
+
 # ---- MAIN DISPLAY ----
 def display_data():
     with st.container():
@@ -151,7 +187,7 @@ def display_data():
         data = fetch_TTHC_data()
         if data:
             with st.expander("Xem bảng dữ liệu thô"):
-                st.dataframe(pd.DataFrame(data), use_container_width=True, height=320)
+                show_df_pretty(data, height=320)
             plot_pie_charts(data)
         else:
             st.warning("Không có dữ liệu DVC/TTHC.")
@@ -167,6 +203,7 @@ def display_data():
                     hide_index=True,
                 )
                 if "raw" in data_766:
+                    show_df_pretty([data_766["raw"]], height=100)
                     st.json(data_766["raw"], expanded=False)
             st.markdown("---")
             standard = {
@@ -187,15 +224,13 @@ def display_data():
         units = fetch_766_all_units_in_province("398126")
         if units:
             with st.expander("Xem toàn bộ các đơn vị trong tỉnh"):
-                df_units = pd.DataFrame(units)
-                st.dataframe(df_units, use_container_width=True, height=400)
+                show_df_pretty(units, height=400)
 
             # Sở, ban, ngành
             so_ban_nganh = filter_units_by_loai_coquan(units, 2)
-            st.markdown("#### Sở, ban, ngành (LOAI_COQUAN=2)")
+            st.markdown("#### Sở, ban, ngành")
             if so_ban_nganh:
-                st.dataframe(pd.DataFrame(so_ban_nganh), use_container_width=True, height=320)
-
+                show_df_pretty(so_ban_nganh, height=320)
                 # Biểu đồ tổng điểm thấp nhất
                 plot_units_barchart(
                     so_ban_nganh,
@@ -203,7 +238,6 @@ def display_data():
                     field_name="Tổng điểm",
                     top_n=10
                 )
-
                 # Biểu đồ từng chỉ số thành phần
                 for field, field_name in FIELDS_MAPPING:
                     plot_units_barchart(
@@ -215,12 +249,11 @@ def display_data():
             else:
                 st.warning("Không có dữ liệu sở, ban, ngành.")
 
-            # Xã/phường/thị trấn
+            # Xã/phường/đặc khu
             xa_phuong = filter_units_by_loai_coquan(units, 3)
-            st.markdown("#### Xã, phường, thị trấn (LOAI_COQUAN=3)")
+            st.markdown("#### Xã, phường, đặc khu")
             if xa_phuong:
-                st.dataframe(pd.DataFrame(xa_phuong), use_container_width=True, height=320)
-
+                show_df_pretty(xa_phuong, height=320)
                 # Biểu đồ tổng điểm thấp nhất
                 plot_units_barchart(
                     xa_phuong,
@@ -228,7 +261,6 @@ def display_data():
                     field_name="Tổng điểm",
                     top_n=10
                 )
-
                 # Biểu đồ từng chỉ số thành phần
                 for field, field_name in FIELDS_MAPPING:
                     plot_units_barchart(
@@ -238,7 +270,7 @@ def display_data():
                         top_n=10
                     )
             else:
-                st.warning("Không có dữ liệu xã/phường/thị trấn.")
+                st.warning("Không có dữ liệu xã/phường/đặc khu.")
         else:
             st.error("Không có dữ liệu các đơn vị trong tỉnh An Giang.")
 
