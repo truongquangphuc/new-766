@@ -49,6 +49,7 @@ FIELDS_MAPPING = [
     ("TTTT", "Thanh toán trực tuyến"),
     ("CLGQ", "Dịch vụ công trực tuyến"),
     ("CKMB", "Công khai, minh bạch"),
+    ("TDGQ", "Tiến độ giải quyết"),
 ]
 
 # ---- UTILS ----
