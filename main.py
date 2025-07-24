@@ -23,13 +23,22 @@ st.markdown(
     """, unsafe_allow_html=True
 )
 
+# ---- CHỈ SỐ mapping (field, tên tiếng Việt) ----
+FIELDS_MAPPING = [
+    ("MDHL", "Mức độ hài lòng"),
+    ("MDSH", "Số hoá hồ sơ"),
+    ("TTTT", "Thanh toán trực tuyến"),
+    ("CLGQ", "Dịch vụ công trực tuyến"),
+    ("CKMB", "Công khai, minh bạch"),
+]
+
 # ---- UTILS ----
 def filter_units_by_loai_coquan(units, loai):
     """Lọc danh sách đơn vị theo LOAI_COQUAN."""
     return [unit for unit in units if str(unit.get("LOAI_COQUAN")) == str(loai)]
 
-def plot_units_barchart(units, field="TONG_SCORE", top_n=10, title=None):
-    """Vẽ bar chart so sánh các đơn vị theo trường field."""
+def plot_units_barchart(units, field, field_name, top_n=10):
+    """Vẽ bar chart top N đơn vị có chỉ số thấp nhất theo field, hiện nhãn tiếng Việt."""
     df = pd.DataFrame(units)
     df[field] = pd.to_numeric(df[field], errors='coerce')
     df = df.dropna(subset=[field])
@@ -38,14 +47,14 @@ def plot_units_barchart(units, field="TONG_SCORE", top_n=10, title=None):
     scores = df_bottom[field]
 
     fig, ax = plt.subplots(figsize=(8, 4.5))
-    bars = ax.barh(names, scores, color='#1f77b4')
+    bars = ax.barh(names, scores, color='#d62728')
     ax.set_xlabel('Điểm số')
-    ax.set_title(title if title else f'Top {top_n} đơn vị theo "{field}"')
+    ax.set_title(f'Top {top_n} đơn vị có "{field_name}" thấp nhất')
     ax.invert_yaxis()
     ax.bar_label(bars, fmt='%.2f', padding=4)
     plt.tight_layout()
     st.pyplot(fig)
-    st.caption(f"Top {top_n} đơn vị theo '{field}'.")
+    st.caption(f"Top {top_n} đơn vị có '{field_name}' thấp nhất.")
 
 def plot_pie_charts(data):
     df = pd.DataFrame(data)
@@ -174,7 +183,7 @@ def display_data():
 
     # --- TỔNG HỢP ĐƠN VỊ ---
     with st.container():
-        st.subheader("3. So sánh chỉ số 766 giữa các đơn vị trong tỉnh An Giang", divider='rainbow')
+        st.subheader("3. So sánh các chỉ số giữa các đơn vị trong tỉnh An Giang", divider='rainbow')
         units = fetch_766_all_units_in_province("398126")
         if units:
             with st.expander("Xem toàn bộ các đơn vị trong tỉnh"):
@@ -186,12 +195,23 @@ def display_data():
             st.markdown("#### Sở, ban, ngành (LOAI_COQUAN=2)")
             if so_ban_nganh:
                 st.dataframe(pd.DataFrame(so_ban_nganh), use_container_width=True, height=320)
+
+                # Biểu đồ tổng điểm thấp nhất
                 plot_units_barchart(
                     so_ban_nganh,
                     field="TONG_SCORE",
-                    top_n=10,
-                    title="Top 10 sở, ban, ngành điểm tổng thấp nhất"
+                    field_name="Tổng điểm",
+                    top_n=10
                 )
+
+                # Biểu đồ từng chỉ số thành phần
+                for field, field_name in FIELDS_MAPPING:
+                    plot_units_barchart(
+                        so_ban_nganh,
+                        field=field,
+                        field_name=field_name,
+                        top_n=10
+                    )
             else:
                 st.warning("Không có dữ liệu sở, ban, ngành.")
 
@@ -200,12 +220,23 @@ def display_data():
             st.markdown("#### Xã, phường, thị trấn (LOAI_COQUAN=3)")
             if xa_phuong:
                 st.dataframe(pd.DataFrame(xa_phuong), use_container_width=True, height=320)
+
+                # Biểu đồ tổng điểm thấp nhất
                 plot_units_barchart(
                     xa_phuong,
                     field="TONG_SCORE",
-                    top_n=10,
-                    title="Top 10 xã/phường/thị trấn điểm tổng thấp nhất"
+                    field_name="Tổng điểm",
+                    top_n=10
                 )
+
+                # Biểu đồ từng chỉ số thành phần
+                for field, field_name in FIELDS_MAPPING:
+                    plot_units_barchart(
+                        xa_phuong,
+                        field=field,
+                        field_name=field_name,
+                        top_n=10
+                    )
             else:
                 st.warning("Không có dữ liệu xã/phường/thị trấn.")
         else:
