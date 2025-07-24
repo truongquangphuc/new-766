@@ -192,7 +192,7 @@ def display_data():
 
             # Sở, ban, ngành
             so_ban_nganh = filter_units_by_loai_coquan(units, 2)
-            st.markdown("#### Sở, ban, ngành (LOAI_COQUAN=2)")
+            st.markdown("#### Sở, ban, ngành")
             if so_ban_nganh:
                 st.dataframe(pd.DataFrame(so_ban_nganh), use_container_width=True, height=320)
 
@@ -217,7 +217,7 @@ def display_data():
 
             # Xã/phường/thị trấn
             xa_phuong = filter_units_by_loai_coquan(units, 3)
-            st.markdown("#### Xã, phường, thị trấn (LOAI_COQUAN=3)")
+            st.markdown("#### Xã, phường, thị trấn")
             if xa_phuong:
                 st.dataframe(pd.DataFrame(xa_phuong), use_container_width=True, height=320)
 
