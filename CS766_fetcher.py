@@ -37,8 +37,8 @@ def fetch_766_angiang_info(target_id="398126"):
     target = {
         "Công khai, minh bạch": float(an_giang['CKMB']),
         "Tiến độ giải quyết": float(an_giang['TDGQ']),
-        "Dịch vụ công trực tuyến": float(an_giang['TTTT']),
-        "Thanh toán trực tuyến": float(an_giang['CLGQ']),
+        "Dịch vụ công trực tuyến": float(an_giang['CLGQ']),
+        "Thanh toán trực tuyến": float(an_giang['TTTT']),
         "Mức độ hài lòng": float(an_giang['MDHL']),
         "Số hóa hồ sơ": float(an_giang['MDSH']),
         "Điểm tổng": float(an_giang['TONG_SCORE']),
@@ -70,8 +70,10 @@ if __name__ == "__main__":
 
     print("\nTất cả đơn vị trong tỉnh An Giang:")
     all_units = fetch_766_all_units_in_province()
-    if all_units:
-        for item in all_units:
-            print(item)
-    else:
-        print("Không có dữ liệu các đơn vị trực thuộc.")
+    item_398151 = next((item for item in all_units if item['ID'] == "398151"), None)
+    print(item_398151)
+    # if all_units:
+    #     for item in all_units:
+    #         print(item)
+    # else:
+    #     print("Không có dữ liệu các đơn vị trực thuộc.")

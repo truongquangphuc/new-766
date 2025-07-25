@@ -111,12 +111,12 @@ def plot_pie_charts(data):
         st.pyplot(fig2)
         st.caption("Biểu đồ 2: Tỉ lệ mức độ cung cấp DVC trực tuyến.")
 
-def plot_766_barchart(result, standard):
+def plot_766_barchart(title, result, standard):
     fields = [
         "Công khai, minh bạch",
-        "Tiến độ giải quyết",
-        "Dịch vụ công trực tuyến",
+        "Tiến độ giải quyết",        
         "Thanh toán trực tuyến",
+        "Dịch vụ công trực tuyến",
         "Mức độ hài lòng",
         "Số hóa hồ sơ"
     ]
@@ -126,10 +126,10 @@ def plot_766_barchart(result, standard):
     x = np.arange(len(fields))
     width = 0.34
     fig, ax = plt.subplots(figsize=(7, 3.8))
-    rects1 = ax.bar(x - width/2, angiang_scores, width, label='An Giang', color='#1f77b4', edgecolor='white', linewidth=1.5)
+    rects1 = ax.bar(x - width/2, angiang_scores, width, label=title, color='#1f77b4', edgecolor='white', linewidth=1.5)
     rects2 = ax.bar(x + width/2, standard_scores, width, label='Điểm chuẩn', color='#ff7f0e', edgecolor='white', linewidth=1.5)
     ax.set_ylabel('Điểm số', fontsize=11)
-    ax.set_title('So sánh các chỉ số 766: An Giang vs. Điểm chuẩn', fontsize=10, color='#0099FF')
+    ax.set_title('So sánh các chỉ số 766: '+title+' vs. Điểm chuẩn', fontsize=10, color='#0099FF')
     ax.set_xticks(x)
     ax.set_xticklabels(fields, rotation=15, fontsize=9)
     ax.legend(fontsize=8, loc='upper center', frameon=False)
