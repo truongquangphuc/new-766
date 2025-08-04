@@ -58,12 +58,12 @@ def plot_units_barchart(units, field, field_name, top_n=10):
     fig, ax = plt.subplots(figsize=(8, 4.5))
     bars = ax.barh(names, scores, color='#d62728')
     ax.set_xlabel('Điểm số')
-    ax.set_title(f'Top {top_n} đơn vị có "{field_name}" thấp nhất')
+    ax.set_title(f'{top_n} đơn vị có "{field_name}" thấp nhất')
     ax.invert_yaxis()
     ax.bar_label(bars, fmt='%.2f', padding=4)
     plt.tight_layout()
     st.pyplot(fig)
-    st.caption(f"Top {top_n} đơn vị có '{field_name}' thấp nhất.")
+    st.caption(f"{top_n} đơn vị có '{field_name}' thấp nhất.")
 
 def plot_pie_charts(data):
     df = pd.DataFrame(data)
