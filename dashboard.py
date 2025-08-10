@@ -12,7 +12,7 @@ def main():
     load_custom_css()
     
     # Header
-    st.title("📊 Dashboard Theo dõi Quyết định 766/QĐ-TTg")
+    st.title("📊 Dashboard Theo dõi Bộ chỉ số Quyết định 766")
     st.markdown("**Bộ chỉ số chỉ đạo, điều hành và đánh giá chất lượng phục vụ người dân, doanh nghiệp**")
     st.divider()
     
@@ -49,7 +49,7 @@ def main():
             p_thang = st.selectbox(
                 "Chọn tháng", 
                 list(range(1, 13)),
-                index=current_month - 1  # index = tháng - 1
+                index=current_month - 2  # index = tháng - 1
             )
             
             # Năm cho báo cáo theo tháng
