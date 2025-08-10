@@ -197,7 +197,8 @@ def _render_chitiet_report_online(data, selected_tthc_id, selected_tthc_name):
         clean_selected_name_lower = clean_selected_name.lower()
 
         if (agency_name_lower == clean_selected_name_lower or 
-            agency_name_lower in clean_selected_name_lower):
+            agency_name_lower in clean_selected_name_lower or 
+            clean_selected_name_lower in agency_name_lower):
             filtered_data.append(item)
     
     # Hiển thị kết quả lọc

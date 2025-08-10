@@ -178,7 +178,7 @@ def _render_chitiet_report_online(data, selected_tthc_id, selected_tthc_name):
     debug_info = []  # Để debug
     
     # 🎯 LOẠI BỎ " - tỉnh An Giang" KHỎI TÊN
-    clean_selected_name = selected_tthc_name #.replace(" - tỉnh An Giang", "").strip()
+    clean_selected_name = selected_tthc_name.replace(" - tỉnh An Giang", "").strip()
     
     for item in chitiet_data:
         agency_id = item.get('agency_id', '')
@@ -195,10 +195,13 @@ def _render_chitiet_report_online(data, selected_tthc_id, selected_tthc_name):
         # 🎯 LỌC THEO AGENCY_NAME (so sánh tên đã làm sạch)
         # Lọc theo logic: clean_selected_name contains agency_name
         agency_name_lower = agency_name.lower()
+        print(agency_name_lower)
         clean_selected_name_lower = clean_selected_name.lower()
+        # print(clean_selected_name_lower)
 
         if (agency_name_lower == clean_selected_name_lower or 
-            agency_name_lower in clean_selected_name_lower):
+            agency_name_lower in clean_selected_name_lower or 
+            clean_selected_name_lower in agency_name_lower):
             filtered_data.append(item)
 
     
