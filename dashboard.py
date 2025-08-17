@@ -81,7 +81,7 @@ def main():
         if st.button("🔄 Cập nhật dữ liệu", use_container_width=True):
             st.cache_data.clear()
             st.session_state.clear()
-            st.experimental_rerun()
+            st.rerun()
 
     # Header
     st.title("📊 Dashboard Theo dõi Bộ chỉ số 766 tỉnh An Giang")
