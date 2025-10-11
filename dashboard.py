@@ -49,7 +49,7 @@ def main():
 
         # radio_options = ["Cả năm", "6 tháng", "Theo quý", "Theo tháng"]
         radio_options = ["Cả năm", "Theo tháng"]
-        report_type = st.radio("Kỳ báo cáo", radio_options, index=1)
+        report_type = st.radio("Kỳ báo cáo", radio_options, index=0)
 
         p_6thang, p_quy, p_thang = 0, 0, 0
         if report_type == "6 tháng":
@@ -83,26 +83,26 @@ def main():
             st.session_state.clear()
             st.rerun()
         st.divider()
-    if st.button("📤 Gửi Zalo", use_container_width=True):
-        with st.spinner("Đang gửi..."):
-            try:
-                from zalo_report_custom import ZaloWeeklyReport, ZaloReportConfig
-                config = ZaloReportConfig()
-                config.ZALO_BOT_TOKEN = "430881819486503765:SmZoEoNvmeMlIoGEchwbUvTKufwSPjvTtRooeThVbpixRwjwIvwrLuIMbOOrHDkU"
-                config.ZALO_RECIPIENTS = ["7aefa72bcd63243d7d72"]
-                config.PROVINCE_ID = "398126"
-                config.PROVINCE_CODE = "398126"
-                config.PROVINCE_NAME = "An Giang"
-                
-                report = ZaloWeeklyReport(config)
-                result = report.run()
-                
-                if result.get("success"):
-                    st.success("✅ Đã gửi!")
-                else:
-                    st.warning("⚠️ Gửi một phần")
-            except Exception as e:
-                st.error(f"❌ Lỗi: {e}")
+        if st.button("📤 Gửi báo cáo qua Zalo", use_container_width=True):
+            with st.spinner("Đang gửi..."):
+                try:
+                    from zalo_report_custom import ZaloWeeklyReport, ZaloReportConfig
+                    config = ZaloReportConfig()
+                    config.ZALO_BOT_TOKEN = "430881819486503765:SmZoEoNvmeMlIoGEchwbUvTKufwSPjvTtRooeThVbpixRwjwIvwrLuIMbOOrHDkU"
+                    config.ZALO_RECIPIENTS = ["7aefa72bcd63243d7d72"]
+                    config.PROVINCE_ID = "398126"
+                    config.PROVINCE_CODE = "398126"
+                    config.PROVINCE_NAME = "An Giang"
+                    
+                    report = ZaloWeeklyReport(config)
+                    result = report.run()
+                    
+                    if result.get("success"):
+                        st.success("✅ Đã gửi!")
+                    else:
+                        st.warning("⚠️ Gửi một phần")
+                except Exception as e:
+                    st.error(f"❌ Lỗi: {e}")
 
     # Header
     st.title("📊 Dashboard Theo dõi Bộ chỉ số 766 tỉnh An Giang")
