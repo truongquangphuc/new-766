@@ -82,6 +82,27 @@ def main():
             st.cache_data.clear()
             st.session_state.clear()
             st.rerun()
+        st.divider()
+    if st.button("📤 Gửi Zalo", use_container_width=True):
+        with st.spinner("Đang gửi..."):
+            try:
+                from zalo_report_custom import ZaloWeeklyReport, ZaloReportConfig
+                config = ZaloReportConfig()
+                config.ZALO_BOT_TOKEN = "430881819486503765:SmZoEoNvmeMlIoGEchwbUvTKufwSPjvTtRooeThVbpixRwjwIvwrLuIMbOOrHDkU"
+                config.ZALO_RECIPIENTS = ["7aefa72bcd63243d7d72"]
+                config.PROVINCE_ID = "398126"
+                config.PROVINCE_CODE = "398126"
+                config.PROVINCE_NAME = "An Giang"
+                
+                report = ZaloWeeklyReport(config)
+                result = report.run()
+                
+                if result.get("success"):
+                    st.success("✅ Đã gửi!")
+                else:
+                    st.warning("⚠️ Gửi một phần")
+            except Exception as e:
+                st.error(f"❌ Lỗi: {e}")
 
     # Header
     st.title("📊 Dashboard Theo dõi Bộ chỉ số 766 tỉnh An Giang")
