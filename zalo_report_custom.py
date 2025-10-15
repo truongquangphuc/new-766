@@ -1,16 +1,15 @@
 """
-ZALO WEEKLY REPORT v1.4.1 - Fix: Lấy dữ liệu xã
-Báo cáo DVC qua Zalo Bot - Fix step 7 lấy data xã/phường
+ZALO WEEKLY REPORT v1.5.0 - Lọc xã theo ngưỡng điểm
+Báo cáo DVC qua Zalo Bot - Hiển thị xã theo điểm < 80 và < 90
 
-Fix:
-- Thêm error handling cho step 7
-- Kiểm tra method tồn tại
-- Log chi tiết để debug
-- Workaround nếu không có API
+Changes in v1.5.0:
+- Thay đổi từ "10 xã thấp nhất" sang lọc theo ngưỡng điểm
+- Hiển thị 2 nhóm: Xã < 80 điểm (Cần cải thiện gấp) và 80-90 điểm (Cần chú ý)
+- Thêm config để điều chỉnh ngưỡng điểm
 
 Author: An Giang Province
-Version: 1.4.1
-Date: 2025-10-11
+Version: 1.5.0
+Date: 2025-10-15
 """
 
 import requests
@@ -48,8 +47,13 @@ class ZaloReportConfig:
     SHOW_TREND_QUARTER: bool = True
     SHOW_LOWEST_UNITS: bool = True
     NUM_LOWEST_UNITS: int = 5
-    SHOW_LOWEST_COMMUNES: bool = True
-    NUM_LOWEST_COMMUNES: int = 10
+
+    # Commune/Ward Settings - MỚI v1.5.0
+    SHOW_LOW_SCORE_COMMUNES: bool = True
+    COMMUNE_THRESHOLD_CRITICAL: float = 80.0  # Điểm < 80: Cần cải thiện gấp
+    COMMUNE_THRESHOLD_WARNING: float = 90.0   # Điểm < 90: Cần chú ý
+    SHOW_CRITICAL_COMMUNES: bool = True       # Hiển thị xã < 80
+    SHOW_WARNING_COMMUNES: bool = True        # Hiển thị xã < 90
 
     def __post_init__(self):
         self.EXPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -93,22 +97,11 @@ class ZaloWeeklyReport:
         }
 
     # ========================================================================
-    # DATA FETCHING - FIX v1.4.1
+    # DATA FETCHING
     # ========================================================================
 
     def fetch_data(self) -> Dict[str, Any]:
-        """
-        Lấy dữ liệu từ DCV API
-
-        Steps:
-        1/7: Báo cáo năm
-        2/7: Báo cáo tháng
-        3/7: Chỉ số tháng
-        4/7: Xu hướng 3 tháng
-        5/7: Xu hướng quý
-        6/7: Báo cáo Sở/Ban
-        7/7: Báo cáo Xã/Phường ⭐ FIX
-        """
+        """Lấy dữ liệu từ DCV API"""
         from get_tthc_ketqua import DCVAPIClient
 
         self.logger.info("=" * 60)
@@ -172,7 +165,7 @@ class ZaloWeeklyReport:
                         p_tinh_id=self.config.PROVINCE_CODE,
                         p_6thang=0,
                         p_quy=0,
-                        p_thang= 0, #period["month"],
+                        p_thang=period["month"],
                         capdonviid="1"
                     )
                     self.logger.info(f"    ✓ Số Sở/Ban: {len(report_so_nganh) if report_so_nganh else 0}")
@@ -180,7 +173,7 @@ class ZaloWeeklyReport:
                     self.logger.error(f"    ✗ Lỗi lấy Sở/Ban: {e}")
                     report_so_nganh = []
 
-                # 7/7. Báo cáo cấp XÃ/PHƯỜNG ⭐ FIX
+                # 7/7. Báo cáo cấp XÃ/PHƯỜNG
                 self.logger.info("7/7 Lấy báo cáo cấp Xã/Phường...")
                 report_xa = []
 
@@ -192,7 +185,7 @@ class ZaloWeeklyReport:
                             p_tinh_id=self.config.PROVINCE_CODE,
                             p_6thang=0,
                             p_quy=0,
-                            p_thang= 0, #period["month"],
+                            p_thang=0,
                             capdonviid="2"
                         )
                         self.logger.info(f"    ✓ Số Xã: {len(report_xa) if report_xa else 0}")
@@ -206,7 +199,7 @@ class ZaloWeeklyReport:
                                 p_tinh_id=self.config.PROVINCE_CODE,
                                 p_6thang=0,
                                 p_quy=0,
-                                p_thang=period["month"]
+                                p_thang=0
                             )
                             self.logger.info(f"    ✓ Số Xã (workaround): {len(report_xa) if report_xa else 0}")
                         else:
@@ -388,39 +381,58 @@ class ZaloWeeklyReport:
 
         return result
 
-    def _get_lowest_10_communes(self) -> List[Dict[str, Any]]:
-        """Lấy 10 xã/phường có kết quả thấp nhất"""
+    def _get_communes_by_threshold(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Lấy các xã/phường theo ngưỡng điểm - MỚI v1.5.0
+
+        Returns:
+            Dict với 2 keys:
+            - 'critical': List xã có điểm < 80
+            - 'warning': List xã có điểm >= 80 và < 90
+        """
         report_xa = self.data.get('report_xa', [])
 
         if not report_xa:
-            return []
+            return {'critical': [], 'warning': []}
 
+        # Sắp xếp theo điểm tăng dần
         sorted_communes = sorted(
             report_xa,
             key=lambda x: float(x.get('TONG_SCORE', 0))
         )
 
-        lowest_10 = sorted_communes[:self.config.NUM_LOWEST_COMMUNES]
+        critical_communes = []  # < 80 điểm
+        warning_communes = []   # >= 80 và < 90 điểm
 
-        result = []
         total = len(sorted_communes)
 
-        for idx, commune in enumerate(lowest_10, 1):
-            result.append({
-                "name": commune.get('TEN', 'N/A'),
-                "score": float(commune.get('TONG_SCORE', 0)),
+        for idx, commune in enumerate(sorted_communes, 1):
+            score = float(commune.get('TONG_SCORE', 0))
+            name = commune.get('TEN', 'N/A')
+
+            commune_data = {
+                "name": name,
+                "score": score,
                 "rank": idx,
                 "total": total
-            })
+            }
 
-        return result
+            if score < self.config.COMMUNE_THRESHOLD_CRITICAL:
+                critical_communes.append(commune_data)
+            elif score < self.config.COMMUNE_THRESHOLD_WARNING:
+                warning_communes.append(commune_data)
+
+        return {
+            'critical': critical_communes,
+            'warning': warning_communes
+        }
 
     # ========================================================================
     # MESSAGE FORMATTING
     # ========================================================================
 
     def format_message(self) -> str:
-        """Format tin nhắn đầy đủ"""
+        """Format tin nhắn đầy đủ - CẬP NHẬT v1.5.0"""
         p = self.data.get("period", {})
 
         province_year = self._get_province_report('year')
@@ -430,7 +442,7 @@ class ZaloWeeklyReport:
         trend_months = self.data.get("trend_months", [])
         trend_quarters = self.data.get("trend_quarters", [])
         lowest_units = self._get_lowest_5_units()
-        lowest_communes = self._get_lowest_10_communes()
+        communes_by_threshold = self._get_communes_by_threshold()  # MỚI
 
         lines = [
             f"📊 BÁO CÁO DVC - {self.config.PROVINCE_NAME.upper()}",
@@ -566,20 +578,44 @@ class ZaloWeeklyReport:
 
             lines.append("")
 
-        # 7. 10 XÃ THẤP NHẤT
-        if self.config.SHOW_LOWEST_COMMUNES and lowest_communes:
-            lines.append("━━━ ⚠️ 10 XÃ/PHƯỜNG CẦN CẢI THIỆN ━━━")
+        # 7. XÃ/PHƯỜNG THEO NGƯỠNG ĐIỂM - CẬP NHẬT v1.5.0
+        if self.config.SHOW_LOW_SCORE_COMMUNES:
+            critical_communes = communes_by_threshold.get('critical', [])
+            warning_communes = communes_by_threshold.get('warning', [])
 
-            for commune in lowest_communes:
-                name = commune['name']
-                if len(name) > 35:
-                    name = name[:32] + "..."
+            # 7A. XÃ CẦN CẢI THIỆN GẤP (< 80 điểm)
+            if self.config.SHOW_CRITICAL_COMMUNES and critical_communes:
+                lines.append(f"━━━ 🚨 XÃ/PHƯỜNG < {self.config.COMMUNE_THRESHOLD_CRITICAL:.0f} ĐIỂM ━━━")
+                lines.append(f"(Cần cải thiện gấp: {len(critical_communes)} đơn vị)")
+                lines.append("")
 
-                lines.append(f"{commune['rank']}. {name}")
-                lines.append(f"   Điểm: {commune['score']:.1f}/100")
+                for commune in critical_communes:
+                    name = commune['name']
+                    if len(name) > 35:
+                        name = name[:32] + "..."
 
-            lines.append("")
+                    lines.append(f"{commune['rank']}. {name}")
+                    lines.append(f"   Điểm: {commune['score']:.1f}/100")
 
+                lines.append("")
+
+            # 7B. XÃ CẦN CHÚ Ý (80 <= điểm < 90)
+            if self.config.SHOW_WARNING_COMMUNES and warning_communes:
+                lines.append(f"━━━ ⚠️ XÃ/PHƯỜNG {self.config.COMMUNE_THRESHOLD_CRITICAL:.0f}-{self.config.COMMUNE_THRESHOLD_WARNING:.0f} ĐIỂM ━━━")
+                lines.append(f"(Cần chú ý: {len(warning_communes)} đơn vị)")
+                lines.append("")
+
+                for commune in warning_communes:
+                    name = commune['name']
+                    if len(name) > 35:
+                        name = name[:32] + "..."
+
+                    lines.append(f"{commune['rank']}. {name}")
+                    lines.append(f"   Điểm: {commune['score']:.1f}/100")
+
+                lines.append("")
+
+        # Footer
         lines.extend([
             "━━━━━━━━━━━━━━━━━━━━",
             f"🏛️ Sở Khoa học & Công nghệ {self.config.PROVINCE_NAME}",
@@ -595,7 +631,7 @@ class ZaloWeeklyReport:
         return message
 
     # ========================================================================
-    # SENDING & EXPORT & RUN (giống v1.4.0)
+    # SENDING & EXPORT & RUN
     # ========================================================================
 
     def send_zalo(self, message: str) -> List[Dict[str, Any]]:
@@ -693,7 +729,7 @@ class ZaloWeeklyReport:
     def run(self, preview_only: bool = False) -> Dict[str, Any]:
         """Chạy toàn bộ"""
         self.logger.info("\n" + "=" * 60)
-        self.logger.info("ZALO WEEKLY REPORT v1.4.1")
+        self.logger.info("ZALO WEEKLY REPORT v1.5.0")
         self.logger.info("=" * 60)
 
         try:
@@ -788,6 +824,12 @@ if __name__ == "__main__":
     config.PROVINCE_ID = "398126"
     config.PROVINCE_CODE = "398126"
     config.PROVINCE_NAME = "An Giang"
+
+    # Cấu hình ngưỡng điểm xã - MỚI v1.5.0
+    config.COMMUNE_THRESHOLD_CRITICAL = 80.0  # Xã < 80 điểm
+    config.COMMUNE_THRESHOLD_WARNING = 90.0   # Xã < 90 điểm
+    config.SHOW_CRITICAL_COMMUNES = True
+    config.SHOW_WARNING_COMMUNES = True
 
     preview_only = len(sys.argv) > 1 and sys.argv[1] == "preview"
 

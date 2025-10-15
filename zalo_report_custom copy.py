@@ -1,16 +1,15 @@
 """
-ZALO WEEKLY REPORT v1.4.1 - Fix: Lấy dữ liệu xã
-Báo cáo DVC qua Zalo Bot - Fix step 7 lấy data xã/phường
+ZALO WEEKLY REPORT v1.5.0 - Lọc xã theo ngưỡng điểm
+Báo cáo DVC qua Zalo Bot - Hiển thị xã theo điểm < 80 và < 90
 
-Fix:
-- Thêm error handling cho step 7
-- Kiểm tra method tồn tại
-- Log chi tiết để debug
-- Workaround nếu không có API
+Changes in v1.5.0:
+- Thay đổi từ "10 xã thấp nhất" sang lọc theo ngưỡng điểm
+- Hiển thị 2 nhóm: Xã < 80 điểm (Cần cải thiện gấp) và 80-90 điểm (Cần chú ý)
+- Thêm config để điều chỉnh ngưỡng điểm
 
 Author: An Giang Province
-Version: 1.4.1
-Date: 2025-10-11
+Version: 1.5.0
+Date: 2025-10-15
 """
 
 import requests
@@ -48,8 +47,13 @@ class ZaloReportConfig:
     SHOW_TREND_QUARTER: bool = True
     SHOW_LOWEST_UNITS: bool = True
     NUM_LOWEST_UNITS: int = 5
-    SHOW_LOWEST_COMMUNES: bool = True
-    NUM_LOWEST_COMMUNES: int = 10
+
+    # Commune/Ward Settings - MỚI v1.5.0
+    SHOW_LOW_SCORE_COMMUNES: bool = True
+    COMMUNE_THRESHOLD_CRITICAL: float = 80.0  # Điểm < 80: Cần cải thiện gấp
+    COMMUNE_THRESHOLD_WARNING: float = 90.0   # Điểm < 90: Cần chú ý
+    SHOW_CRITICAL_COMMUNES: bool = True       # Hiển thị xã < 80
+    SHOW_WARNING_COMMUNES: bool = True        # Hiển thị xã < 90
 
     def __post_init__(self):
         self.EXPORT_DIR.mkdir(parents=True, exist_ok=True)
@@ -76,7 +80,7 @@ class ZaloWeeklyReport:
         if not logger.handlers:
             handler = logging.StreamHandler()
             handler.setFormatter(
-                logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+                logging.Formatter(\'%(asctime)s - %(levelname)s - %(message)s\')
             )
             logger.addHandler(handler)
 
@@ -93,22 +97,11 @@ class ZaloWeeklyReport:
         }
 
     # ========================================================================
-    # DATA FETCHING - FIX v1.4.1
+    # DATA FETCHING
     # ========================================================================
 
     def fetch_data(self) -> Dict[str, Any]:
-        """
-        Lấy dữ liệu từ DCV API
-
-        Steps:
-        1/7: Báo cáo năm
-        2/7: Báo cáo tháng
-        3/7: Chỉ số tháng
-        4/7: Xu hướng 3 tháng
-        5/7: Xu hướng quý
-        6/7: Báo cáo Sở/Ban
-        7/7: Báo cáo Xã/Phường ⭐ FIX
-        """
+        """Lấy dữ liệu từ DCV API"""
         from dcv_api_client import DCVAPIClient
 
         self.logger.info("=" * 60)
@@ -116,7 +109,7 @@ class ZaloWeeklyReport:
         self.logger.info("=" * 60)
 
         period = self._get_period()
-        self.logger.info(f"Kỳ báo cáo: Tháng {period['month']}/{period['year']}, Quý {period['quarter']}")
+        self.logger.info(f"Kỳ báo cáo: Tháng {period[\'month\']}/{period[\'year\']}, Quý {period[\'quarter\']}")
 
         try:
             with DCVAPIClient() as client:
@@ -124,7 +117,7 @@ class ZaloWeeklyReport:
                 self.logger.info("1/7 Lấy báo cáo 766 cả năm...")
                 report_766_year = client.get_tinh_766_report(
                     p_nam=period["year"],
-                    p_tinh_id='0',
+                    p_tinh_id=\'0\',
                     p_6thang=0,
                     p_quy=0,
                     p_thang=0
@@ -132,10 +125,10 @@ class ZaloWeeklyReport:
                 self.logger.info(f"    ✓ Số tỉnh: {len(report_766_year) if report_766_year else 0}")
 
                 # 2/7. Báo cáo 766 THÁNG HIỆN TẠI
-                self.logger.info(f"2/7 Lấy báo cáo 766 tháng {period['month']}...")
+                self.logger.info(f"2/7 Lấy báo cáo 766 tháng {period[\'month\']}...")
                 report_766_month = client.get_tinh_766_report(
                     p_nam=period["year"],
-                    p_tinh_id='0',
+                    p_tinh_id=\'0\',
                     p_6thang=0,
                     p_quy=0,
                     p_thang=period["month"]
@@ -180,12 +173,12 @@ class ZaloWeeklyReport:
                     self.logger.error(f"    ✗ Lỗi lấy Sở/Ban: {e}")
                     report_so_nganh = []
 
-                # 7/7. Báo cáo cấp XÃ/PHƯỜNG ⭐ FIX
+                # 7/7. Báo cáo cấp XÃ/PHƯỜNG
                 self.logger.info("7/7 Lấy báo cáo cấp Xã/Phường...")
                 report_xa = []
 
                 try:
-                    if hasattr(client, 'get_tinh_766_report_filtered'):
+                    if hasattr(client, \'get_tinh_766_report_filtered\'):
                         self.logger.info("    → Gọi API get_tinh_766_report_filtered...")
                         report_xa = client.get_tinh_766_report_filtered(
                             p_nam=period["year"],
@@ -200,7 +193,7 @@ class ZaloWeeklyReport:
                         self.logger.warning("    ⚠️  Method get_tinh_766_report_filtered không tồn tại!")
                         self.logger.warning("    → Thử workaround...")
 
-                        if hasattr(client, 'get_huyen_xa_766_report'):
+                        if hasattr(client, \'get_huyen_xa_766_report\'):
                             report_xa = client.get_huyen_xa_766_report(
                                 p_nam=period["year"],
                                 p_tinh_id=self.config.PROVINCE_CODE,
@@ -274,7 +267,7 @@ class ZaloWeeklyReport:
 
                 report = client.get_tinh_766_report(
                     p_nam=year_to_use,
-                    p_tinh_id='0',
+                    p_tinh_id=\'0\',
                     p_6thang=0,
                     p_quy=0,
                     p_thang=month
@@ -285,11 +278,11 @@ class ZaloWeeklyReport:
                                if item.get("ID") == self.config.PROVINCE_ID]
 
                     if filtered:
-                        score = filtered[0].get('TONG_SCORE', 'N/A')
+                        score = filtered[0].get(\'TONG_SCORE\', \'N/A\')
                         try:
-                            score = round(float(score), 1) if score != 'N/A' else 'N/A'
+                            score = round(float(score), 1) if score != \'N/A\' else \'N/A\'
                         except:
-                            score = 'N/A'
+                            score = \'N/A\'
 
                         trends.append({
                             "month": month,
@@ -313,7 +306,7 @@ class ZaloWeeklyReport:
 
                 report = client.get_tinh_766_report(
                     p_nam=year,
-                    p_tinh_id='0',
+                    p_tinh_id=\'0\',
                     p_6thang=0,
                     p_quy=q,
                     p_thang=0
@@ -324,11 +317,11 @@ class ZaloWeeklyReport:
                                if item.get("ID") == self.config.PROVINCE_ID]
 
                     if filtered:
-                        score = filtered[0].get('TONG_SCORE', 'N/A')
+                        score = filtered[0].get(\'TONG_SCORE\', \'N/A\')
                         try:
-                            score = round(float(score), 1) if score != 'N/A' else 'N/A'
+                            score = round(float(score), 1) if score != \'N/A\' else \'N/A\'
                         except:
-                            score = 'N/A'
+                            score = \'N/A\'
 
                         trends.append({
                             "quarter": q,
@@ -346,12 +339,12 @@ class ZaloWeeklyReport:
     # DATA PROCESSING
     # ========================================================================
 
-    def _get_province_report(self, period_type: str = 'year') -> Optional[Dict[str, Any]]:
+    def _get_province_report(self, period_type: str = \'year\') -> Optional[Dict[str, Any]]:
         """Lấy thông tin tỉnh từ report"""
-        if period_type == 'year':
-            report_data = self.data.get('report_tinh_766_year', [])
+        if period_type == \'year\':
+            report_data = self.data.get(\'report_tinh_766_year\', [])
         else:
-            report_data = self.data.get('report_tinh_766_month', [])
+            report_data = self.data.get(\'report_tinh_766_month\', [])
 
         if not report_data:
             return None
@@ -363,14 +356,14 @@ class ZaloWeeklyReport:
 
     def _get_lowest_5_units(self) -> List[Dict[str, Any]]:
         """Lấy 5 đơn vị Sở/Ban có kết quả thấp nhất"""
-        report_so_nganh = self.data.get('report_so_nganh', [])
+        report_so_nganh = self.data.get(\'report_so_nganh\', [])
 
         if not report_so_nganh:
             return []
 
         sorted_units = sorted(
             report_so_nganh,
-            key=lambda x: float(x.get('TONG_SCORE', 0))
+            key=lambda x: float(x.get(\'TONG_SCORE\', 0))
         )
 
         lowest_5 = sorted_units[:self.config.NUM_LOWEST_UNITS]
@@ -380,72 +373,91 @@ class ZaloWeeklyReport:
 
         for idx, unit in enumerate(lowest_5, 1):
             result.append({
-                "name": unit.get('TEN', 'N/A'),
-                "score": float(unit.get('TONG_SCORE', 0)),
+                "name": unit.get(\'TEN\', \'N/A\'),
+                "score": float(unit.get(\'TONG_SCORE\', 0)),
                 "rank": idx,
                 "total": total
             })
 
         return result
 
-    def _get_lowest_10_communes(self) -> List[Dict[str, Any]]:
-        """Lấy 10 xã/phường có kết quả thấp nhất"""
-        report_xa = self.data.get('report_xa', [])
+    def _get_communes_by_threshold(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Lấy các xã/phường theo ngưỡng điểm - MỚI v1.5.0
+
+        Returns:
+            Dict với 2 keys:
+            - \'critical\': List xã có điểm < 80
+            - \'warning\': List xã có điểm >= 80 và < 90
+        """
+        report_xa = self.data.get(\'report_xa\', [])
 
         if not report_xa:
-            return []
+            return {\'critical\': [], \'warning\': []}
 
+        # Sắp xếp theo điểm tăng dần
         sorted_communes = sorted(
             report_xa,
-            key=lambda x: float(x.get('TONG_SCORE', 0))
+            key=lambda x: float(x.get(\'TONG_SCORE\', 0))
         )
 
-        lowest_10 = sorted_communes[:self.config.NUM_LOWEST_COMMUNES]
+        critical_communes = []  # < 80 điểm
+        warning_communes = []   # >= 80 và < 90 điểm
 
-        result = []
         total = len(sorted_communes)
 
-        for idx, commune in enumerate(lowest_10, 1):
-            result.append({
-                "name": commune.get('TEN', 'N/A'),
-                "score": float(commune.get('TONG_SCORE', 0)),
+        for idx, commune in enumerate(sorted_communes, 1):
+            score = float(commune.get(\'TONG_SCORE\', 0))
+            name = commune.get(\'TEN\', \'N/A\')
+
+            commune_data = {
+                "name": name,
+                "score": score,
                 "rank": idx,
                 "total": total
-            })
+            }
 
-        return result
+            if score < self.config.COMMUNE_THRESHOLD_CRITICAL:
+                critical_communes.append(commune_data)
+            elif score < self.config.COMMUNE_THRESHOLD_WARNING:
+                warning_communes.append(commune_data)
+
+        return {
+            \'critical\': critical_communes,
+            \'warning\': warning_communes
+        }
 
     # ========================================================================
     # MESSAGE FORMATTING
     # ========================================================================
 
     def format_message(self) -> str:
-        """Format tin nhắn đầy đủ"""
+        """Format tin nhắn đầy đủ - CẬP NHẬT v1.5.0"""
         p = self.data.get("period", {})
 
-        province_year = self._get_province_report('year')
-        province_month = self._get_province_report('month')
+        province_year = self._get_province_report(\'year\')
+        province_month = self._get_province_report(\'month\')
 
         indices = self.data.get("chiso", [])
         trend_months = self.data.get("trend_months", [])
         trend_quarters = self.data.get("trend_quarters", [])
         lowest_units = self._get_lowest_5_units()
-        lowest_communes = self._get_lowest_10_communes()
+        communes_by_threshold = self._get_communes_by_threshold()  # MỚI
 
         lines = [
             f"📊 BÁO CÁO DVC - {self.config.PROVINCE_NAME.upper()}",
             "━━━━━━━━━━━━━━━━━━━━",
-            f"📅 Ngày {p.get('date')}",
+            f"📅 Ngày {p.get(\'date\')}",
             ""
         ]
 
         # 1. ĐIỂM NĂM
-        lines.append(f"━━━ ĐIỂM NĂM {p.get('year')} ━━━")
+        lines.append(f"━━━ ĐIỂM NĂM {p.get(\'year\')} ━━━")
 
         if province_year:
-            year_score = province_year.get('TONG_SCORE', 'N/A')
-            year_rank = province_year.get('ROW_STT', 'N/A')
-            total = len(self.data.get('report_tinh_766_year', []))
+            year_score = province_year.get(\'TONG_SCORE\', \'N/A\')
+            year_rank = province_year.get(\'ROW_STT\', \'N/A\')
+            total = len(self.data.get(\'report_tinh_766_year\', []))
 
             lines.append(f"🎯 Điểm: {year_score}/100")
             if self.config.SHOW_RANKING:
@@ -456,12 +468,12 @@ class ZaloWeeklyReport:
         lines.append("")
 
         # 2. ĐIỂM THÁNG
-        lines.append(f"━━━ ĐIỂM THÁNG {p.get('month')}/{p.get('year')} ━━━")
+        lines.append(f"━━━ ĐIỂM THÁNG {p.get(\'month\')}/{p.get(\'year\')} ━━━")
 
         if province_month:
-            month_score = province_month.get('TONG_SCORE', 'N/A')
-            month_rank = province_month.get('ROW_STT', 'N/A')
-            total = len(self.data.get('report_tinh_766_month', []))
+            month_score = province_month.get(\'TONG_SCORE\', \'N/A\')
+            month_rank = province_month.get(\'ROW_STT\', \'N/A\')
+            total = len(self.data.get(\'report_tinh_766_month\', []))
 
             lines.append(f"🎯 Điểm: {month_score}/100")
             if self.config.SHOW_RANKING:
@@ -477,9 +489,9 @@ class ZaloWeeklyReport:
 
             display_count = min(self.config.NUM_INDICES, len(indices))
             for idx in indices[:display_count]:
-                code = idx.get('CODE', '')
-                score = float(idx.get('SCORE', 0))
-                max_score = float(idx.get('MAX_SCORE', 1))
+                code = idx.get(\'CODE\', \'\')
+                score = float(idx.get(\'SCORE\', 0))
+                max_score = float(idx.get(\'MAX_SCORE\', 1))
 
                 score_pct = (score / max_score * 100) if max_score > 0 else 0
 
@@ -501,16 +513,16 @@ class ZaloWeeklyReport:
             lines.append("━━━ XU HƯỚNG 3 THÁNG ━━━")
 
             for t in trend_months:
-                score = t['score']
-                if score != 'N/A':
-                    lines.append(f"Tháng {t['month']:02d}: {score}/100")
+                score = t[\'score\']
+                if score != \'N/A\':
+                    lines.append(f"Tháng {t[\'month\']:02d}: {score}/100")
                 else:
-                    lines.append(f"Tháng {t['month']:02d}: N/A")
+                    lines.append(f"Tháng {t[\'month\']:02d}: N/A")
 
-            valid = [t for t in trend_months if t['score'] != 'N/A']
+            valid = [t for t in trend_months if t[\'score\'] != \'N/A\']
             if len(valid) >= 2:
-                first = float(valid[0]['score'])
-                last = float(valid[-1]['score'])
+                first = float(valid[0][\'score\'])
+                last = float(valid[-1][\'score\'])
                 change = last - first
 
                 if change > 0:
@@ -529,16 +541,16 @@ class ZaloWeeklyReport:
             lines.append("━━━ XU HƯỚNG CÁC QUÝ ━━━")
 
             for t in trend_quarters:
-                score = t['score']
-                if score != 'N/A':
-                    lines.append(f"Quý {t['quarter']}: {score}/100")
+                score = t[\'score\']
+                if score != \'N/A\':
+                    lines.append(f"Quý {t[\'quarter\']}: {score}/100")
                 else:
-                    lines.append(f"Quý {t['quarter']}: N/A")
+                    lines.append(f"Quý {t[\'quarter\']}: N/A")
 
-            valid = [t for t in trend_quarters if t['score'] != 'N/A']
+            valid = [t for t in trend_quarters if t[\'score\'] != \'N/A\']
             if len(valid) >= 2:
-                first = float(valid[0]['score'])
-                last = float(valid[-1]['score'])
+                first = float(valid[0][\'score\'])
+                last = float(valid[-1][\'score\'])
                 change = last - first
 
                 if change > 0:
@@ -557,29 +569,53 @@ class ZaloWeeklyReport:
             lines.append("━━━ ⚠️ 5 SỞ/BAN CẦN CẢI THIỆN ━━━")
 
             for unit in lowest_units:
-                name = unit['name']
+                name = unit[\'name\']
                 if len(name) > 30:
                     name = name[:27] + "..."
 
-                lines.append(f"{unit['rank']}. {name}")
-                lines.append(f"   Điểm: {unit['score']:.1f}/100")
+                lines.append(f"{unit[\'rank\']}. {name}")
+                lines.append(f"   Điểm: {unit[\'score\']:.1f}/100")
 
             lines.append("")
 
-        # 7. 10 XÃ THẤP NHẤT
-        if self.config.SHOW_LOWEST_COMMUNES and lowest_communes:
-            lines.append("━━━ ⚠️ 10 XÃ/PHƯỜNG CẦN CẢI THIỆN ━━━")
+        # 7. XÃ/PHƯỜNG THEO NGƯỠNG ĐIỂM - CẬP NHẬT v1.5.0
+        if self.config.SHOW_LOW_SCORE_COMMUNES:
+            critical_communes = communes_by_threshold.get(\'critical\', [])
+            warning_communes = communes_by_threshold.get(\'warning\', [])
 
-            for commune in lowest_communes:
-                name = commune['name']
-                if len(name) > 35:
-                    name = name[:32] + "..."
+            # 7A. XÃ CẦN CẢI THIỆN GẤP (< 80 điểm)
+            if self.config.SHOW_CRITICAL_COMMUNES and critical_communes:
+                lines.append(f"━━━ 🚨 XÃ/PHƯỜNG < {self.config.COMMUNE_THRESHOLD_CRITICAL:.0f} ĐIỂM ━━━")
+                lines.append(f"(Cần cải thiện gấp: {len(critical_communes)} đơn vị)")
+                lines.append("")
 
-                lines.append(f"{commune['rank']}. {name}")
-                lines.append(f"   Điểm: {commune['score']:.1f}/100")
+                for commune in critical_communes:
+                    name = commune[\'name\']
+                    if len(name) > 35:
+                        name = name[:32] + "..."
 
-            lines.append("")
+                    lines.append(f"{commune[\'rank\']}. {name}")
+                    lines.append(f"   Điểm: {commune[\'score\']:.1f}/100")
 
+                lines.append("")
+
+            # 7B. XÃ CẦN CHÚ Ý (80 <= điểm < 90)
+            if self.config.SHOW_WARNING_COMMUNES and warning_communes:
+                lines.append(f"━━━ ⚠️ XÃ/PHƯỜNG {self.config.COMMUNE_THRESHOLD_CRITICAL:.0f}-{self.config.COMMUNE_THRESHOLD_WARNING:.0f} ĐIỂM ━━━")
+                lines.append(f"(Cần chú ý: {len(warning_communes)} đơn vị)")
+                lines.append("")
+
+                for commune in warning_communes:
+                    name = commune[\'name\']
+                    if len(name) > 35:
+                        name = name[:32] + "..."
+
+                    lines.append(f"{commune[\'rank\']}. {name}")
+                    lines.append(f"   Điểm: {commune[\'score\']:.1f}/100")
+
+                lines.append("")
+
+        # Footer
         lines.extend([
             "━━━━━━━━━━━━━━━━━━━━",
             f"🏛️ Sở Khoa học & Công nghệ {self.config.PROVINCE_NAME}",
@@ -595,7 +631,7 @@ class ZaloWeeklyReport:
         return message
 
     # ========================================================================
-    # SENDING & EXPORT & RUN (giống v1.4.0)
+    # SENDING & EXPORT & RUN
     # ========================================================================
 
     def send_zalo(self, message: str) -> List[Dict[str, Any]]:
@@ -619,7 +655,7 @@ class ZaloWeeklyReport:
                 result = response.json()
 
                 if result.get("ok"):
-                    msg_id = result.get('result', {}).get('message_id', 'N/A')
+                    msg_id = result.get(\'result\', {}).get(\'message_id\', \'N/A\')
                     self.logger.info(f"   ✓ OK! ID: {msg_id}")
                     results.append({"chat_id": chat_id, "ok": True, "message_id": msg_id})
                 else:
@@ -641,13 +677,13 @@ class ZaloWeeklyReport:
             return None
 
         p = self.data.get("period", {})
-        filename = f"bao_cao_T{p.get('month'):02d}_{p.get('year')}.xlsx"
+        filename = f"bao_cao_T{p.get(\'month\'):02d}_{p.get(\'year\')}.xlsx"
         filepath = self.config.EXPORT_DIR / filename
 
         try:
             self.logger.info(f"Export: {filepath}")
 
-            with pd.ExcelWriter(filepath, engine='openpyxl') as writer:
+            with pd.ExcelWriter(filepath, engine=\'openpyxl\') as writer:
                 if self.data.get("report_tinh_766_year"):
                     pd.DataFrame(self.data["report_tinh_766_year"]).to_excel(
                         writer, sheet_name="Điểm năm", index=False
@@ -693,7 +729,7 @@ class ZaloWeeklyReport:
     def run(self, preview_only: bool = False) -> Dict[str, Any]:
         """Chạy toàn bộ"""
         self.logger.info("\n" + "=" * 60)
-        self.logger.info("ZALO WEEKLY REPORT v1.4.1")
+        self.logger.info("ZALO WEEKLY REPORT v1.5.0")
         self.logger.info("=" * 60)
 
         try:
@@ -788,6 +824,12 @@ if __name__ == "__main__":
     config.PROVINCE_ID = "398126"
     config.PROVINCE_CODE = "398126"
     config.PROVINCE_NAME = "An Giang"
+
+    # Cấu hình ngưỡng điểm xã - MỚI v1.5.0
+    config.COMMUNE_THRESHOLD_CRITICAL = 80.0  # Xã < 80 điểm
+    config.COMMUNE_THRESHOLD_WARNING = 90.0   # Xã < 90 điểm
+    config.SHOW_CRITICAL_COMMUNES = True
+    config.SHOW_WARNING_COMMUNES = True
 
     preview_only = len(sys.argv) > 1 and sys.argv[1] == "preview"
 
