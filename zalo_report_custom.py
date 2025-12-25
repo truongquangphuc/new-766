@@ -819,7 +819,7 @@ if __name__ == "__main__":
     import sys
 
     config = ZaloReportConfig()
-    config.ZALO_BOT_TOKEN = "430881819486503765:SmZoEoNvmeMlIoGEchwbUvTKufwSPjvTtRooeThVbpixRwjwIvwrLuIMbOOrHDkU"
+    config.ZALO_BOT_TOKEN = "430881819486503765:kogPfspfqMRJLkzoClDUciWSxKWAkqEHyIKjTJkOTIEbkTMqiyBzXfoxJsCGjSrP"
     config.ZALO_RECIPIENTS = ["7aefa72bcd63243d7d72"]
     config.PROVINCE_ID = "398126"
     config.PROVINCE_CODE = "398126"
