@@ -32,7 +32,7 @@ def main():
         default_year_index = 0
 
         year = st.selectbox("Chọn năm", years, index=default_year_index)
-        tinh_options = {"11358": "An Giang"}
+        tinh_options = {"11358": "Hà Nội"}
         selected_tinh = st.selectbox(
             "Chọn tỉnh/thành phố",
             list(tinh_options.keys()),
@@ -92,7 +92,7 @@ def main():
                     config.ZALO_RECIPIENTS = ["7aefa72bcd63243d7d72"]
                     config.PROVINCE_ID = "398126"
                     config.PROVINCE_CODE = "398126"
-                    config.PROVINCE_NAME = "An Giang"
+                    config.PROVINCE_NAME = "Hà Nội"
                     
                     report = ZaloWeeklyReport(config)
                     result = report.run()
@@ -105,7 +105,7 @@ def main():
                     st.error(f"❌ Lỗi: {e}")
 
     # Header
-    st.title("📊 Dashboard Theo dõi Bộ chỉ số 766 tỉnh An Giang")
+    st.title("📊 Dashboard Theo dõi Bộ chỉ số 766 tỉnh Hà Nội")
     st.markdown("**Quyết định số 766/QĐ-TTg của Thủ tướng Chính phủ: Phê duyệt Bộ chỉ số chỉ đạo, điều hành và đánh giá chất lượng phục vụ người dân, doanh nghiệp trong thực hiện thủ tục hành chính, dịch vụ công theo thời gian thực trên môi trường điện tử**")
     st.info(filter_info)   # 👈 Dòng thông báo lọc kỳ báo cáo
     st.divider()
@@ -140,7 +140,7 @@ def main():
     st.markdown(
         f"""
         📊 Dashboard theo dõi Quyết định 766/QĐ-TTg | Cập nhật: {datetime.now().strftime("%d/%m/%Y %H:%M")}
-        Dữ liệu được đồng bộ từ API dichvucong.gov.vn và An Giang
+        Dữ liệu được đồng bộ từ API dichvucong.gov.vn và Hà Nội
         """
     )
 
